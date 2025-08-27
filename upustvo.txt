@@ -1,0 +1,15 @@
+Pretraga: ?q=bazen
+
+Filteri: ?cityName=Tešanj&zoneName=Crvena&parkingTypeId=Ulica&minFree=5
+
+Sort:
+
+po nazivu: ?sort=parkingName&order=asc
+
+po ažuriranju: ?sort=createdAt&order=desc
+
+po slobodnim mjestima: ?sort=free&order=desc
+
+po zauzetosti: ?sort=occupancyRatio&order=desc
+
+Paginacija: ?page=2&pageSize=50
