@@ -41,6 +41,7 @@ export function createApp() {
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
   app.use("/dumps", express.static(path.resolve(process.cwd(), "dumps")));
+  app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
 
   // Globalni error handler
   app.use((err, _req, res, _next) => {
