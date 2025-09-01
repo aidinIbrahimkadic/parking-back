@@ -1,3 +1,4 @@
+// src/externalClient.js
 import fetch from "node-fetch";
 import dotenv from "dotenv";
 dotenv.config();
@@ -7,7 +8,6 @@ let tokenExpiresAt = 0;
 
 function logDebug(...args) {
   if (process.env.DEBUG_AUTH === "1") {
-    // Pazimo da ne logamo lozinku
     console.log("[auth]", ...args);
   }
 }
@@ -22,10 +22,9 @@ function tryParseJSON(text) {
 
 function normalizeToken(raw) {
   if (!raw) throw new Error("No token in login response");
-
   let t = String(raw).trim();
 
-  // Ako je JSON string sa navodnicima, skini ih:  e.g.  "\"eyJhbGci...\""
+  // Ako je JSON string sa navodnicima, skini ih
   if (
     (t.startsWith('"') && t.endsWith('"')) ||
     (t.startsWith("'") && t.endsWith("'"))
@@ -33,14 +32,12 @@ function normalizeToken(raw) {
     t = t.slice(1, -1).trim();
   }
 
-  // Ako je objekat "Bearer xxx" – ne dodaj ponovo prefix
+  // Ako je već "Bearer xxx", ne dodavati ponovo
   if (/^Bearer\s+/i.test(t)) return t;
-
   return `Bearer ${t}`;
 }
 
 function decodeJwtExp(authHeaderValue) {
-  // prima "Bearer xxx.yyy.zzz" ili "xxx.yyy.zzz"
   const parts = authHeaderValue.replace(/^Bearer\s+/i, "").split(".");
   if (parts.length !== 3) return null;
   try {
@@ -71,7 +68,6 @@ async function login() {
     throw new Error(`Login failed: ${res.status}`);
   }
 
-  // Podržimo više formata: plain string, JSON string, ili JSON objekt sa poljem
   let tok;
   if (ct.includes("application/json")) {
     const parsed = tryParseJSON(raw);
@@ -83,7 +79,6 @@ async function login() {
       tok =
         parsed.token || parsed.jwt || parsed.access_token || parsed.accessToken;
     } else {
-      // ako je ipak plain tekst sa JSON headerom
       tok = raw;
     }
   } else {
@@ -93,7 +88,6 @@ async function login() {
   const authHeader = normalizeToken(tok);
   token = authHeader;
 
-  // expiraciju odredi iz JWT-a, ako može; fallback 50 min
   const expMS = decodeJwtExp(authHeader);
   tokenExpiresAt =
     expMS && expMS > Date.now()
@@ -114,12 +108,12 @@ async function getToken() {
   return login();
 }
 
-async function authFetch(url, opts = {}, retryOnce = true) {
+export async function authFetch(url, opts = {}, retryOnce = true) {
   const tk = await getToken();
   const headers = {
     ...(opts.headers || {}),
     Accept: "application/json",
-    Authorization: tk, // već uključuje "Bearer "
+    Authorization: tk,
   };
   const res = await fetch(url, { ...opts, headers });
   if (res.status === 401 && retryOnce) {
@@ -135,13 +129,9 @@ async function authFetch(url, opts = {}, retryOnce = true) {
   return res;
 }
 
-/**
- * Očekuješ array objekata sa TVOJIM poljima:
- *   parkingId, parkingName, cityName, zoneName, zoneColor,
- *   numberOfParkingPlaces, totalNumberOfRegularPlaces, freeNumberOfRegularPlaces,
- *   totalNumberOfSpecialPlaces, freeNumberOfSpecialPlaces,
- *   parkingTypeId, locationId, longitude, latitude, parkingAddress
- */
+// === Public helpers za tvoje jobove/route-ove ===
+
+/** Stari helper (custom format) */
 export async function fetchParkingsFromSource() {
   const res = await authFetch(process.env.EXT_DATA_URL);
   const text = await res.text();
@@ -154,6 +144,7 @@ export async function fetchParkingsFromSource() {
   return data;
 }
 
+/** Novi helper (parking-templates/find-all-info) */
 export async function fetchParkingsFindAll() {
   const res = await authFetch(process.env.EXT_DATA_URL);
   const text = await res.text();
@@ -163,7 +154,7 @@ export async function fetchParkingsFindAll() {
   }
   const data = tryParseJSON(text);
   if (!Array.isArray(data))
-    throw new Error("Expected array from /parking/find-all");
+    throw new Error("Expected array from /parking-templates/find-all-info");
   return data;
 }
 
@@ -179,4 +170,9 @@ export async function fetchParkingById(parkingId) {
   }
   const data = tryParseJSON(text);
   return data ?? text;
+}
+
+/** Alias za kompatibilnost sa starim importima (ako negdje postoji) */
+export async function loginToExternal() {
+  return getToken(); // vraća "Bearer xxx"
 }
